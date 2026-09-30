@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.4",
+	"Category": "",
+	"Description": "Networked light-aircraft prototype: flight model, cabin interaction, multiplayer replication.",
+	"Modules": [
+		{
+			"Name": "FlightProto",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

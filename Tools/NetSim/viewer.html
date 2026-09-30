@@ -1,0 +1,246 @@
+<!doctype html>
+<!--
+  Replays a NetSim trace: two players' screens side by side, each showing its own aircraft
+  as the client predicts it and the other aircraft as that client interpolates it.
+  Serve this folder over HTTP with trace.json next to it. Add ?frame=N for a still frame
+  (used by record.mjs), or leave it off to play in real time.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FlightProto netcode harness</title>
+<style>
+  html, body { margin: 0; background: #0b0f14; color: #e8edf2; font: 14px/1.35 "DejaVu Sans", Arial, sans-serif; overflow: hidden; }
+  #stage { position: relative; width: 1280px; height: 720px; }
+  canvas#gl { position: absolute; left: 0; top: 64px; }
+  header { position: absolute; left: 0; top: 0; width: 1280px; height: 64px; box-sizing: border-box; padding: 9px 18px; background: #111820; border-bottom: 1px solid #243140; }
+  header b { font-size: 18px; letter-spacing: .2px; }
+  header .sub { color: #9fb0c0; font-size: 12.5px; margin-top: 3px; }
+  .pane { position: absolute; top: 64px; width: 639px; height: 520px; pointer-events: none; }
+  .pane.left { left: 0; } .pane.right { left: 641px; }
+  .divider { position: absolute; left: 639px; top: 64px; width: 2px; height: 520px; background: #0b0f14; }
+  .title { position: absolute; left: 12px; top: 10px; font-weight: bold; font-size: 15px; text-shadow: 0 1px 3px #000; }
+  .hud { position: absolute; left: 12px; bottom: 10px; background: rgba(8,12,18,.72); border-radius: 6px; padding: 8px 11px; font: 13px/1.5 "DejaVu Sans Mono", monospace; min-width: 250px; }
+  .hud .phase { color: #ffd166; font-family: "DejaVu Sans", Arial, sans-serif; font-weight: bold; }
+  .tag { position: absolute; transform: translate(-50%, -100%); font-size: 11.5px; background: rgba(8,12,18,.75); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  footer { position: absolute; left: 0; top: 584px; width: 1280px; height: 136px; box-sizing: border-box; padding: 10px 18px; background: #111820; border-top: 1px solid #243140; }
+  #net { font: bold 14px "DejaVu Sans Mono", monospace; }
+  #net.bad { color: #ff6b5b; } #net.good { color: #7ee081; }
+  #caption { margin-top: 6px; font-size: 15px; min-height: 42px; width: 850px; }
+  #spark { position: absolute; right: 18px; top: 10px; }
+  .legend { position: absolute; right: 18px; top: 104px; font-size: 11.5px; color: #9fb0c0; }
+  .a { color: #ff9f43; } .b { color: #54a0ff; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.170.0/build/three.module.js" } }</script>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <b>FlightProto: flight model + multiplayer netcode test harness</b>
+    <div class="sub">The project's C++ flight model driving a simulated server + 2 clients with latency, jitter and loss. Rendered in three.js, not Unreal Engine footage.</div>
+  </header>
+  <canvas id="gl" width="1280" height="520"></canvas>
+  <div class="divider"></div>
+  <div class="pane left"><div class="title"><span class="a">&#9632;</span> Player A's screen</div><div class="hud" id="hud0"></div></div>
+  <div class="pane right"><div class="title"><span class="b">&#9632;</span> Player B's screen</div><div class="hud" id="hud1"></div></div>
+  <div id="tags"></div>
+  <footer>
+    <div id="net"></div>
+    <div id="caption"></div>
+    <canvas id="spark" width="360" height="90"></canvas>
+    <div class="legend">prediction correction per server update (cm): <span class="a">A</span> / <span class="b">B</span></div>
+  </footer>
+</div>
+<script type="module">
+import * as THREE from 'three';
+
+const trace = (await (await fetch('trace.json')).json()).frames;
+const colors = [0xff9f43, 0x54a0ff];
+
+// Core/Unreal axes (X forward, Y right, Z up; left-handed) -> three.js (Y up, right-handed).
+// The swap of Y and Z is a reflection, so rotation quaternions flip sign on their vector part.
+const toPos = p => new THREE.Vector3(p[0], p[2], p[1]);
+const toQuat = q => new THREE.Quaternion(-q[1], -q[3], -q[2], q[0]);
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(1280, 520, false);
+renderer.setScissorTest(true);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9cc6e8);
+scene.fog = new THREE.Fog(0x9cc6e8, 400, 2600);
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-300, 500, 200);
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshLambertMaterial({ color: 0x6f8f55 }));
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+const grid = new THREE.GridHelper(8000, 160, 0x5d7a47, 0x5d7a47);
+grid.position.y = 0.02;
+scene.add(grid);
+
+// Two parallel runways (player B parks 40 m to the right).
+for (const z of [0, 40]) {
+  const rw = new THREE.Mesh(new THREE.PlaneGeometry(1600, 22), new THREE.MeshLambertMaterial({ color: 0x3b3f44 }));
+  rw.rotation.x = -Math.PI / 2;
+  rw.position.set(700, 0.05, z);
+  scene.add(rw);
+  for (let x = -60; x < 1500; x += 30) {
+    const dash = new THREE.Mesh(new THREE.PlaneGeometry(14, 0.8), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
+    dash.rotation.x = -Math.PI / 2;
+    dash.position.set(x, 0.07, z);
+    scene.add(dash);
+  }
+}
+// Trees for a sense of speed.
+const treeGeo = new THREE.ConeGeometry(4, 14, 7);
+const treeMat = new THREE.MeshLambertMaterial({ color: 0x2f5b2f });
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 700; i++) {
+  const t = new THREE.Mesh(treeGeo, treeMat);
+  const x = rnd() * 3400 - 600;
+  let z = rnd() * 1600 - 800;
+  if (z > -30 && z < 70) z += z < 20 ? -80 : 80;
+  t.position.set(x, 7, z);
+  scene.add(t);
+}
+
+// Blockout aircraft matching FlightPawn's cube layout (metres).
+function makePlane(color) {
+  const g = new THREE.Group();
+  const body = new THREE.MeshLambertMaterial({ color });
+  const white = new THREE.MeshLambertMaterial({ color: 0xf4f4f4 });
+  const box = (sx, sy, sz, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m); b.position.set(x, y, z); g.add(b); };
+  box(8.0, 1.4, 1.2, 0, 0, 0, body);          // fuselage
+  box(1.5, 0.12, 11.0, 0.4, 0.6, 0, white);   // wing
+  box(1.0, 0.08, 3.4, -3.7, 0.2, 0, white);   // tailplane
+  box(1.0, 1.4, 0.1, -3.7, 0.9, 0, body);     // fin
+  box(0.2, 1.8, 0.1, 4.1, 0, 0, new THREE.MeshLambertMaterial({ color: 0x222222 })); // prop
+  scene.add(g);
+  return g;
+}
+const planes = [makePlane(colors[0]), makePlane(colors[1])];
+
+const cams = [0, 1].map(() => new THREE.PerspectiveCamera(60, 639 / 520, 0.5, 5000));
+const camState = [null, null];
+const tags = document.getElementById('tags');
+const tagEls = [0, 1].map(() => [0, 1].map(() => { const d = document.createElement('div'); d.className = 'tag'; tags.appendChild(d); return d; }));
+
+const spark = document.getElementById('spark').getContext('2d');
+const sparkHistory = trace.map(f => f.planes.map(p => p.corr));
+
+function captionAt(t) {
+  if (t < 5) return 'Engine start on the server-authoritative systems: battery → fuel pump → magnetos → starter. Player B starts 6 s later.';
+  if (t < 14) return 'Engine running. Each client simulates its own aircraft immediately from local input and streams quantised inputs to the server.';
+  if (t < 36) return 'Takeoff roll at ~120 ms round trip. Corrections stay near 0 cm because the flight model is deterministic: client and server compute the same result.';
+  if (t < 50) return 'Airborne. The other player’s aircraft is drawn from server snapshots, interpolated 100 ms in the past so it moves smoothly between updates.';
+  if (t < 66) return 'Network degraded to 360 ms round trip, ±40 ms jitter, 15% packet loss. Inputs are sent 6× redundantly; late or missing inputs cause corrections, which the client blends out after replaying unacknowledged inputs.';
+  if (t < 69) return 'Network recovers: packets on the fast link overtake ones still in flight by more than the 6-frame redundancy, so the server skips a few inputs and each client corrects once.';
+  return 'Network recovered. Corrections return to 0 cm while both players climb out in opposite turns.';
+}
+
+function project(v, cam, offsetX) {
+  const p = v.clone().project(cam);
+  return { x: offsetX + (p.x * 0.5 + 0.5) * 639, y: 64 + (-p.y * 0.5 + 0.5) * 520, visible: p.z < 1 };
+}
+
+function drawSpark(i) {
+  spark.clearRect(0, 0, 360, 90);
+  spark.fillStyle = '#0b0f14';
+  spark.fillRect(0, 0, 360, 90);
+  const maxCm = 300;
+  const n = trace.length;
+  ['#ff9f43', '#54a0ff'].forEach((c, k) => {
+    spark.strokeStyle = c;
+    spark.beginPath();
+    for (let j = 0; j <= i; j++) {
+      const x = (j / (n - 1)) * 360;
+      const y = 88 - Math.min(sparkHistory[j][k], maxCm) / maxCm * 84;
+      j ? spark.lineTo(x, y) : spark.moveTo(x, y);
+    }
+    spark.stroke();
+  });
+  spark.fillStyle = '#6b7c8c';
+  spark.font = '10px DejaVu Sans';
+  spark.fillText('300', 2, 10);
+  spark.fillText('0', 2, 87);
+}
+
+let maxCorr = [0, 0];
+function renderFrame(i) {
+  const f = trace[Math.min(i, trace.length - 1)];
+  maxCorr = [0, 1].map(k => Math.max(...trace.slice(0, i + 1).map(fr => fr.planes[k].corr)));
+
+  for (let viewer = 0; viewer < 2; viewer++) {
+    // Own aircraft: this client's predicted (smoothed) state. Other aircraft: this client's interpolated view.
+    for (let k = 0; k < 2; k++) {
+      const src = k === viewer ? f.planes[k].owner : f.planes[k].remote;
+      planes[k].position.copy(toPos(src.p));
+      planes[k].quaternion.copy(toQuat(src.q));
+    }
+    const own = planes[viewer];
+    const fwd = new THREE.Vector3(1, 0, 0).applyQuaternion(own.quaternion);
+    fwd.y = 0;
+    fwd.normalize();
+    const desired = own.position.clone().addScaledVector(fwd, -22).add(new THREE.Vector3(0, 6, 0));
+    desired.y = Math.max(desired.y, 3);
+    camState[viewer] = desired;
+    const cam = cams[viewer];
+    cam.position.copy(desired);
+    cam.lookAt(own.position.clone().addScaledVector(fwd, 12).add(new THREE.Vector3(0, 1.5, 0)));
+    cam.updateMatrixWorld();
+
+    const x = viewer * 641;
+    renderer.setViewport(x, 0, 639, 520);
+    renderer.setScissor(x, 0, 639, 520);
+    renderer.render(scene, cam);
+
+    for (let k = 0; k < 2; k++) {
+      const el = tagEls[viewer][k];
+      const pt = project(planes[k].position.clone().add(new THREE.Vector3(0, 3.2, 0)), cam, x);
+      const inPane = pt.visible && pt.x > x + 20 && pt.x < x + 619 && pt.y > 90 && pt.y < 560;
+      el.style.display = inPane ? 'block' : 'none';
+      el.style.left = pt.x + 'px';
+      el.style.top = pt.y + 'px';
+      el.innerHTML = k === viewer ? `<span class="${k ? 'b' : 'a'}">You (predicted locally)</span>`
+        : `<span class="${k ? 'b' : 'a'}">Player ${k ? 'B' : 'A'} (interpolated)</span>`;
+    }
+
+    const p = f.planes[viewer];
+    document.getElementById('hud' + viewer).innerHTML =
+      `<div class="phase">${p.phase}</div>` +
+      `IAS ${(p.ias * 1.943844).toFixed(0).padStart(3)} kt   ALT ${p.alt.toFixed(0).padStart(4)} m<br>` +
+      `unacked inputs   ${String(p.unacked).padStart(3)}<br>` +
+      `last correction ${p.corr.toFixed(1).padStart(6)} cm<br>` +
+      `max correction  ${maxCorr[viewer].toFixed(1).padStart(6)} cm`;
+  }
+
+  const n = f.net;
+  const net = document.getElementById('net');
+  const bad = n.loss >= 10;
+  net.className = bad ? 'bad' : 'good';
+  net.textContent = `t = ${f.t.toFixed(1).padStart(4)} s   network: ${n.ms} ms round trip · ±${n.jitter} ms jitter · ${n.loss}% loss ${bad ? '(DEGRADED)' : ''}`;
+  document.getElementById('caption').textContent = captionAt(f.t);
+  drawSpark(Math.min(i, trace.length - 1));
+}
+
+window.frameCount = trace.length;
+window.renderFrame = renderFrame;
+const fixed = new URLSearchParams(location.search).get('frame');
+if (fixed !== null) {
+  renderFrame(Number(fixed));
+} else {
+  const start = performance.now();
+  const loop = () => {
+    const i = Math.floor((performance.now() - start) / 1000 * 30);
+    if (i < trace.length) { renderFrame(i); requestAnimationFrame(loop); }
+  };
+  loop();
+}
+window.viewerReady = true;
+</script>
+</body>
+</html>

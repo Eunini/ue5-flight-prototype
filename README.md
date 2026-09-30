@@ -72,6 +72,22 @@ cmake -S Tests -B build && cmake --build build && ./build/flight_tests
 
 Coverage: parked stability, takeoff and climb, a bounded cruise speed, energy loss in a glide, stall lift loss, the correct control sense on all three axes, hard-landing detection, bit-identical replay determinism, and input sanitisation.
 
+## Network simulation harness
+
+`Tools/NetSim` runs the same replication scheme as `AFlightPawn` outside the engine: two scripted pilots, one server, and simulated latency, jitter, packet loss and reordering. It drives the real `FlightCore` model and reports prediction corrections.
+
+```
+g++ -std=c++17 -O2 Tools/NetSim/NetSim.cpp Source/FlightProto/Core/FlightModel.cpp -o netsim && ./netsim trace.json
+```
+
+Results for the included 78 s scenario (120 ms round trip with 2% loss, plus a 16 s window at 360 ms, ±40 ms jitter and 15% loss):
+
+- On the steady network, corrections are 0 cm apart from under 1 cm at engine start (the client learns the engine is running one round trip late). The model is deterministic, so client and server compute identical states.
+- In the degraded window, late and reordered inputs cause corrections of up to 3.7 m. The client blends them out after replaying its unacknowledged inputs.
+- The largest correction (7.4 m) comes at the instant the network recovers. Packets on the now-fast link overtake packets still in flight on the slow one by about 7 frames, which is more than the 6-frame redundancy, so the server skips a few inputs. A short server-side jitter buffer for sequence gaps would remove this; it is the next change I would make.
+
+`viewer.html` replays a trace as two players' screens side by side (three.js). `record.mjs` (Playwright) renders it frame by frame for video.
+
 ## Next steps for a production pipeline
 
 - Enhanced Input actions and mapping contexts in place of the legacy axis mappings.

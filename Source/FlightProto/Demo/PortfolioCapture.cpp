@@ -11,6 +11,7 @@
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "UnrealClient.h"
+#include "UObject/Class.h"
 #if WITH_EDITOR
 #include "ShaderCompiler.h"
 #endif
@@ -50,7 +51,7 @@ void UFlightCaptureSubsystem::Captured(int32 Width,int32 Height,const TArray<FCo
  if (Frame>=Limit)
  {
   const auto* Pilot=Cast<AFlightPawn>(UGameplayStatics::GetPlayerPawn(GetWorld(),0));
-  const bool Complete=Pilot && Pilot->GetAltitudeMetres()>25.f && Pilot->GetTelemetry().Airspeed>24. &&
+  const bool Complete=Pilot && Pilot->GetClass()->GetName()==TEXT("BP_Aircraft_C") && Pilot->GetAltitudeMetres()>25.f && Pilot->GetTelemetry().Airspeed>24. &&
       Pilot->GetSystems()->GetEngineState()==EEngineState::Running;
   if (!Complete)
   {
@@ -59,7 +60,7 @@ void UFlightCaptureSubsystem::Captured(int32 Width,int32 Height,const TArray<FCo
       Pilot?static_cast<int32>(Pilot->GetSystems()->GetEngineState()):-1);
    bFinished=true;FPlatformMisc::RequestExitWithStatus(false,2);return;
   }
-  const FString Evidence=FString::Printf(TEXT("{\"success\":true,\"engineStarted\":true,\"airborne\":true,\"altitudeMetres\":%.2f,\"airspeedMetresPerSecond\":%.2f}"),Pilot->GetAltitudeMetres(),Pilot->GetTelemetry().Airspeed);
+  const FString Evidence=FString::Printf(TEXT("{\"success\":true,\"blueprintClass\":\"BP_Aircraft_C\",\"engineStarted\":true,\"airborne\":true,\"altitudeMetres\":%.2f,\"airspeedMetresPerSecond\":%.2f}"),Pilot->GetAltitudeMetres(),Pilot->GetTelemetry().Airspeed);
   FFileHelper::SaveStringToFile(Evidence,*(FPaths::ProjectSavedDir()/TEXT("GameplayEvidence.json")));
   const FString Receipt=FString::Printf(TEXT("{\"success\":true,\"frames\":%d,\"width\":%d,\"height\":%d,\"fps\":30,\"renderer\":\"Unreal Engine 5.4\"}"),Frame,Width,Height);
   FFileHelper::SaveStringToFile(Receipt,*(FPaths::ProjectSavedDir()/TEXT("PortfolioCapture.json")));

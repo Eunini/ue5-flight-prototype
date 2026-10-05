@@ -39,7 +39,9 @@ void AFlightHUD::DrawHUD()
 		return;
 	}
 
-	float Y = 20.f;
+ DrawRect(FLinearColor(.025f,.04f,.055f,.86f),0,0,Canvas->ClipX,124.f);
+ DrawText(TEXT("AERONAUT / ALPINE FLIGHT"),FLinearColor(.97f,.5f,.16f),20,18,GEngine->GetLargeFont());
+	float Y = 50.f;
 	DrawTelemetry(*Pawn, 20.f, Y);
 
 	if (Pawn->IsDiagnosticsOpen())
@@ -64,6 +66,7 @@ void AFlightHUD::DrawHUD()
 		}
 	}
 
+ DrawRect(FLinearColor(.025f,.04f,.055f,.86f),0,Canvas->ClipY-84.f,Canvas->ClipX,84.f);
 	float HelpY = Canvas->ClipY - 3 * LineHeight - 10.f;
 	const FLinearColor Help(0.8f, 0.8f, 0.8f);
 	Line(TEXT("W/S pitch  A/D roll  Q/E rudder  Shift/Ctrl throttle  B brake"), 20.f, HelpY, Help);

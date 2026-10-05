@@ -9,6 +9,7 @@ p.add_argument("--lyra", type=Path)
 p.add_argument("--package", action="store_true")
 p.add_argument("--run", action="store_true")
 p.add_argument("--capture", action="store_true")
+p.add_argument("--software-renderer", action="store_true")
 a=p.parse_args()
 root=Path(__file__).resolve().parents[1]
 config=json.loads((root/"Tools"/"forge.json").read_text())
@@ -69,6 +70,8 @@ if a.package:
 if a.run or a.capture:
     exe=engine/"Engine"/"Binaries"/target_platform/("UnrealEditor.exe" if system=="Windows" else "UnrealEditor")
     cmd=[str(exe),str(project),config["map"],"-game","-windowed","-ResX=1280","-ResY=720","-NoSplash"]
+    if a.software_renderer:
+        cmd+=["-AllowCPUDevices","-vulkan","-sm5"]
     if a.capture:
         frames=project_root/"Saved"/"PortfolioFrames"
         if frames.exists(): shutil.rmtree(frames)

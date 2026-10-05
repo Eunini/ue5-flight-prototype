@@ -9,8 +9,11 @@
 AFlightProtoGameMode::AFlightProtoGameMode()
 {
 	DefaultPawnClass = AFlightPawn::StaticClass();
- static ConstructorHelpers::FClassFinder<APawn> Blueprint(TEXT("/Game/FlightDemo/Blueprints/BP_Aircraft"));
- if (Blueprint.Succeeded()) DefaultPawnClass=Blueprint.Class;
+ if (!IsRunningCommandlet())
+ {
+  static ConstructorHelpers::FClassFinder<APawn> Blueprint(TEXT("/Game/FlightDemo/Blueprints/BP_Aircraft"));
+   if (Blueprint.Succeeded()) DefaultPawnClass=Blueprint.Class;
+ }
 	HUDClass = AFlightHUD::StaticClass();
 }
 

@@ -91,6 +91,7 @@ public:
 	float GetAltitudeMetres() const { return static_cast<float>(State.Position.Z); }
 	float GetThrottleSetting() const { return ThrottleSetting; }
 	bool IsInCabinView() const { return bCabinView; }
+ bool IsAirborne() const { return !State.bOnGround; }
 	bool IsDiagnosticsOpen() const { return bShowDiagnostics; }
 	int32 GetUnacknowledgedInputCount() const { return PendingInputs.Num(); }
 	float GetLastCorrectionCm() const { return LastCorrectionCm; }

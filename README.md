@@ -2,7 +2,7 @@
 
 A C++ light-aircraft project with an original alpine airfield, an interactive cabin and a server-authoritative flight model.
 
-The current revision adds the native demonstration scene, Blueprint asset generation and viewport recording. Engine compilation and native execution are in progress; a gameplay download will be linked here once recorded.
+The native editor modules compile in Unreal Engine 5.4.4. The repository includes the engine-generated Blueprint aircraft, material and airfield map. Native gameplay recording is underway; the download will be linked here once reviewed.
 
 ## Featured systems
 

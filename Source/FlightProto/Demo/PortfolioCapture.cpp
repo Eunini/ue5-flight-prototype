@@ -51,7 +51,7 @@ void UFlightCaptureSubsystem::Captured(int32 Width,int32 Height,const TArray<FCo
  if (Frame>=Limit)
  {
   const auto* Pilot=Cast<AFlightPawn>(UGameplayStatics::GetPlayerPawn(GetWorld(),0));
-  const bool Complete=Pilot && Pilot->GetClass()->GetName()==TEXT("BP_Aircraft_C") && Pilot->GetAltitudeMetres()>25.f && Pilot->GetTelemetry().Airspeed>24. &&
+  const bool Complete=Pilot && Pilot->GetClass()->GetName()==TEXT("BP_Aircraft_C") && Pilot->IsAirborne() && Pilot->GetAltitudeMetres()>25.f && Pilot->GetTelemetry().Airspeed>24. &&
       Pilot->GetSystems()->GetEngineState()==EEngineState::Running;
   if (!Complete)
   {

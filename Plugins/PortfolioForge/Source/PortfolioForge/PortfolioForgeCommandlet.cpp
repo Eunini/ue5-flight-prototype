@@ -16,6 +16,7 @@
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Misc/FileHelper.h"
+#include "HAL/FileManager.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
 #include "Serialization/JsonReader.h"
@@ -32,6 +33,7 @@ namespace
   FSavePackageArgs Args;
   Args.TopLevelFlags=RF_Public|RF_Standalone;
   const FString Filename=FPackageName::LongPackageNameToFilename(Path,FPackageName::GetAssetPackageExtension());
+  IFileManager::Get().MakeDirectory(*FPaths::GetPath(Filename),true);
   return UPackage::SavePackage(Object->GetOutermost(),Object,*Filename,Args);
  }
  bool ApplyDefaults(UObject* Object, const TSharedPtr<FJsonObject>& Spec)
@@ -145,6 +147,7 @@ int32 UPortfolioForgeCommandlet::Main(const FString& Params)
  APlayerStart* Start=World->SpawnActor<APlayerStart>();
  Start->SetActorLocation(FVector(-500,0,180));
  const FString Map=Spec->GetStringField(TEXT("map"));
+ IFileManager::Get().MakeDirectory(*FPaths::GetPath(FPackageName::LongPackageNameToFilename(Map,FPackageName::GetMapPackageExtension())),true);
  if (!UEditorLoadingAndSavingUtils::SaveMap(World,Map)) return 7;
  Assets.Add(MakeShared<FJsonValueString>(Map));
  auto Receipt=MakeShared<FJsonObject>();

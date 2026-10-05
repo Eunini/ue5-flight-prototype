@@ -79,6 +79,9 @@ class FLIGHTPROTO_API AFlightPawn : public APawn
 public:
 	AFlightPawn();
 
+ UFUNCTION(BlueprintCallable, Category="Aircraft|Presentation")
+ void ApplyAircraftLivery();
+
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -215,4 +218,8 @@ private:
 	bool bCabinView = false;
 	bool bShowDiagnostics = false;
 	FRotator CabinLook = FRotator::ZeroRotator;
+ bool bPortfolioDemo=false;
+ float DemoStartedAt=0.f;
+ int32 DemoSwitchStep=0;
+ void AdvanceDemo();
 };

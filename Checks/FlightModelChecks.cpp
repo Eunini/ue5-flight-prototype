@@ -1,5 +1,5 @@
-// Standalone tests for the engine-agnostic flight core.
-// Build: cmake -S Tests -B build && cmake --build build && ./build/flight_tests
+// Standalone checks for the engine-agnostic flight core.
+// Build: cmake -S Checks -B build && cmake --build build && ./build/flight_checks
 #include "../Source/FlightProto/Core/FlightModel.h"
 
 #include <cstdio>
@@ -193,7 +193,7 @@ namespace
 
 int main()
 {
-	const std::vector<std::pair<const char*, std::function<void()>>> Tests = {
+	const std::vector<std::pair<const char*, std::function<void()>>> Checks = {
 		{"parked aircraft stays parked", ParkedAircraftStaysParked},
 		{"takeoff and climb", TakeoffAndClimb},
 		{"cruise speed is bounded", CruiseSpeedIsBounded},
@@ -204,7 +204,7 @@ int main()
 		{"step is deterministic", StepIsDeterministic},
 		{"inputs are sanitized", InputsAreSanitized},
 	};
-	for (const auto& [Name, Fn] : Tests)
+	for (const auto& [Name, Fn] : Checks)
 	{
 		const int Before = Failures;
 		std::printf("%s\n", Name);

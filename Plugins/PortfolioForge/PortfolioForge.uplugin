@@ -1,0 +1,6 @@
+{
+ "FileVersion":3,"Version":1,"VersionName":"1.0","FriendlyName":"Portfolio Forge",
+ "Description":"Creates native portfolio maps, materials and executable Blueprint graphs.",
+ "CanContainContent":false,"EnabledByDefault":true,
+ "Modules":[{"Name":"PortfolioForge","Type":"Editor","LoadingPhase":"Default"}]
+}

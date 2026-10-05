@@ -1,4 +1,4 @@
-// Deterministic fixed-step flight model. No engine types, so it can be unit tested
+// Deterministic fixed-step flight model. No engine types, so it can be verified
 // outside Unreal and replayed exactly during client-side prediction.
 #pragma once
 

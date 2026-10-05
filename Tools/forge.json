@@ -1,0 +1,15 @@
+{
+  "project": "FlightProto.uproject",
+  "target": "FlightProtoEditor",
+  "map": "/Game/FlightDemo/Maps/FlightField",
+  "world": "/Script/FlightProto.FlightDemoWorld",
+  "mode": "/Script/FlightProto.FlightProtoGameMode",
+  "blueprints": [
+    {
+      "path": "/Game/FlightDemo/Blueprints/BP_Aircraft",
+      "parent": "/Script/FlightProto.FlightPawn",
+      "event": "ReceiveBeginPlay",
+      "call": "ApplyAircraftLivery"
+    }
+  ]
+}

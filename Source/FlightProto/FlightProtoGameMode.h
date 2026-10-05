@@ -12,6 +12,8 @@ class FLIGHTPROTO_API AFlightProtoGameMode : public AGameModeBase
 public:
 	AFlightProtoGameMode();
 
+ virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+
 	virtual APawn* SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform) override;
 
 private:

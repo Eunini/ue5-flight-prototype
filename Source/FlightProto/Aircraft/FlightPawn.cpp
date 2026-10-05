@@ -11,6 +11,9 @@
 #include "Net/UnrealNetwork.h"
 #include "Systems/AircraftSystemsComponent.h"
 #include "UObject/ConstructorHelpers.h"
+#include "Demo/PortfolioVisual.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 namespace
 {
@@ -128,6 +131,10 @@ void AFlightPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 void AFlightPawn::BeginPlay()
 {
 	Super::BeginPlay();
+ ApplyAircraftLivery();
+ bPortfolioDemo=FParse::Param(FCommandLine::Get(),TEXT("PortfolioDemo"));
+ DemoStartedAt=GetWorld()->GetTimeSeconds();
+ if (bPortfolioDemo && IsLocallyControlled()) { ToggleCabinView(); bShowDiagnostics=true; }
 	if (HasAuthority())
 	{
 		PlaceOnGround();
@@ -174,6 +181,7 @@ void AFlightPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 void AFlightPawn::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+ if (bPortfolioDemo && IsLocallyControlled()) AdvanceDemo();
 
 	if (IsLocallyControlled())
 	{
@@ -408,4 +416,38 @@ void AFlightPawn::ToggleCabinView()
 	bCabinView = !bCabinView;
 	CabinCamera->SetActive(bCabinView);
 	ChaseCamera->SetActive(!bCabinView);
+}
+
+void AFlightPawn::ApplyAircraftLivery()
+{
+ PortfolioVisual::Color(Fuselage,FLinearColor(.72f,.8f,.81f));
+ PortfolioVisual::Color(Wing,FLinearColor(.94f,.3f,.07f));
+ PortfolioVisual::Color(Tailplane,FLinearColor(.94f,.3f,.07f));
+ PortfolioVisual::Color(Fin,FLinearColor(.05f,.09f,.14f));
+ PortfolioVisual::Color(InstrumentPanel,FLinearColor(.025f,.035f,.04f));
+ for (UCabinSwitchComponent* Switch:PanelSwitches) PortfolioVisual::Color(Switch,FLinearColor(.9f,.67f,.23f));
+}
+
+void AFlightPawn::AdvanceDemo()
+{
+ const float Age=GetWorld()->GetTimeSeconds()-DemoStartedAt;
+ const ECabinSwitch Steps[]={ECabinSwitch::Battery,ECabinSwitch::FuelPump,ECabinSwitch::Magnetos,ECabinSwitch::Starter};
+ if (HasAuthority() && DemoSwitchStep<4 && Age>1.f+DemoSwitchStep)
+  Systems->OperateSwitch(Steps[DemoSwitchStep++]);
+ if (Age>8.f && bCabinView) { ToggleCabinView(); bShowDiagnostics=false; }
+ ThrottleSetting=Age>8.f?1.f:0.f;
+ bBrakeHeld=Age<8.f;
+ const auto BodyVelocity=State.Orientation.Unrotate(State.Velocity);
+ const double Speed=BodyVelocity.Length();
+ if (State.bOnGround) { PitchAxis=Speed>24.?0.6f:0.f; RollAxis=0; YawAxis=0; }
+ else
+ {
+  const double Roll=State.Orientation.RollRad()/FlightCore::DegToRad;
+  const double Pitch=State.Orientation.PitchRad()/FlightCore::DegToRad;
+  const double TargetPitch=FlightCore::Clamp(8.+(Speed-(State.Position.Z<250.?36.:44.))*1.5,2.,12.);
+  const double TargetRoll=State.Position.Z>25. && Age>30.f?25.:0.;
+  PitchAxis=static_cast<float>(FlightCore::Clamp((TargetPitch-Pitch)*.1+FMath::Abs(Roll)*.01,-1.,1.));
+  RollAxis=static_cast<float>(FlightCore::Clamp((TargetRoll-Roll)*.03,-1.,1.));
+  YawAxis=static_cast<float>(FlightCore::Clamp(BodyVelocity.Y*.03,-.5,.5));
+ }
 }

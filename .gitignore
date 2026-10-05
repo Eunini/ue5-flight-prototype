@@ -6,3 +6,9 @@ DerivedDataCache/
 .idea/
 *.sln
 build/
+
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+Artifacts/
+__pycache__/
+*.mp4

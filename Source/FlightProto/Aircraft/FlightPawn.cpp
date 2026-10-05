@@ -12,6 +12,7 @@
 #include "Systems/AircraftSystemsComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Demo/PortfolioVisual.h"
+#include "Demo/PortfolioCapture.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
@@ -84,6 +85,26 @@ AFlightPawn::AFlightPawn()
 	Fin = MakePart(TEXT("Fin"), FVector(-370, 0, 90), FVector(1.0, 0.1, 1.4));
 	InstrumentPanel = MakePart(TEXT("InstrumentPanel"), FVector(95, 0, 15), FVector(0.05, 1.0, 0.3));
 
+ // Original aircraft details share the native presentation components.
+ auto Detail=[this](const TCHAR* Name,const TCHAR* Shape,FVector Location,FVector Size,FRotator Rotation=FRotator::ZeroRotator)
+ {
+  auto* Mesh=CreateDefaultSubobject<UStaticMeshComponent>(Name);
+  Mesh->SetupAttachment(AircraftRoot);
+  Mesh->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,*FString::Printf(TEXT("/Engine/BasicShapes/%s.%s"),Shape,Shape)));
+  Mesh->SetRelativeLocation(Location);Mesh->SetRelativeScale3D(Size);Mesh->SetRelativeRotation(Rotation);
+  Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);TrimParts.Add(Mesh);return Mesh;
+ };
+ Detail(TEXT("Nose"),TEXT("Cone"),FVector(410,0,0),FVector(1.2,1.2,1.3),FRotator(90,0,0));
+ Detail(TEXT("Canopy"),TEXT("Sphere"),FVector(15,0,85),FVector(2.4,1.1,.95));
+ Detail(TEXT("MainWheelL"),TEXT("Cylinder"),FVector(-210,-160,-90),FVector(.6,.6,.22),FRotator(0,0,90));
+ Detail(TEXT("MainWheelR"),TEXT("Cylinder"),FVector(-210,160,-90),FVector(.6,.6,.22),FRotator(0,0,90));
+ Detail(TEXT("NoseWheel"),TEXT("Cylinder"),FVector(240,0,-90),FVector(.6,.6,.22),FRotator(0,0,90));
+ PropellerRoot=CreateDefaultSubobject<USceneComponent>(TEXT("PropellerRoot"));
+ PropellerRoot->SetupAttachment(AircraftRoot);PropellerRoot->SetRelativeLocation(FVector(485,0,0));
+ auto* BladeA=Detail(TEXT("PropellerBladeA"),TEXT("Cube"),FVector::ZeroVector,FVector(.05,.14,2.0));
+ auto* BladeB=Detail(TEXT("PropellerBladeB"),TEXT("Cube"),FVector::ZeroVector,FVector(.05,2.0,.14));
+ BladeA->SetupAttachment(PropellerRoot);BladeB->SetupAttachment(PropellerRoot);
+
 	// One switch per cabin control, laid out left to right on the panel.
 	const int32 SwitchCount = static_cast<int32>(ECabinSwitch::Count);
 	for (int32 i = 0; i < SwitchCount; ++i)
@@ -133,7 +154,7 @@ void AFlightPawn::BeginPlay()
 	Super::BeginPlay();
  ApplyAircraftLivery();
  bPortfolioDemo=FParse::Param(FCommandLine::Get(),TEXT("PortfolioDemo"));
- DemoStartedAt=GetWorld()->GetTimeSeconds();
+ DemoAge=0.f;
  if (bPortfolioDemo && IsLocallyControlled()) { ToggleCabinView(); bShowDiagnostics=true; }
 	if (HasAuthority())
 	{
@@ -181,7 +202,13 @@ void AFlightPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 void AFlightPawn::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
- if (bPortfolioDemo && IsLocallyControlled()) AdvanceDemo();
+ if (bPortfolioDemo && IsLocallyControlled())
+ {
+  const auto* Capture=GetWorld()->GetSubsystem<UFlightCaptureSubsystem>();
+  if (!FParse::Param(FCommandLine::Get(),TEXT("PortfolioCapture")) || (Capture && Capture->IsReady())) AdvanceDemo(DeltaSeconds);
+ }
+ if (PropellerRoot && Systems && (Systems->GetEngineState()==EEngineState::Running || Systems->GetEngineState()==EEngineState::Cranking))
+  PropellerRoot->AddLocalRotation(FRotator(0,0,DeltaSeconds*(Systems->GetEngineState()==EEngineState::Running?1800.f:360.f)));
 
 	if (IsLocallyControlled())
 	{
@@ -425,12 +452,14 @@ void AFlightPawn::ApplyAircraftLivery()
  PortfolioVisual::Color(Tailplane,FLinearColor(.94f,.3f,.07f));
  PortfolioVisual::Color(Fin,FLinearColor(.05f,.09f,.14f));
  PortfolioVisual::Color(InstrumentPanel,FLinearColor(.025f,.035f,.04f));
+ for (UStaticMeshComponent* Part:TrimParts)
+  PortfolioVisual::Color(Part,FLinearColor(.055f,.12f,.16f));
  for (UCabinSwitchComponent* Switch:PanelSwitches) PortfolioVisual::Color(Switch,FLinearColor(.9f,.67f,.23f));
 }
 
-void AFlightPawn::AdvanceDemo()
+void AFlightPawn::AdvanceDemo(float Delta)
 {
- const float Age=GetWorld()->GetTimeSeconds()-DemoStartedAt;
+ DemoAge+=Delta;const float Age=DemoAge;
  const ECabinSwitch Steps[]={ECabinSwitch::Battery,ECabinSwitch::FuelPump,ECabinSwitch::Magnetos,ECabinSwitch::Starter};
  if (HasAuthority() && DemoSwitchStep<4 && Age>1.f+DemoSwitchStep)
   Systems->OperateSwitch(Steps[DemoSwitchStep++]);

@@ -1,7 +1,7 @@
 #include "PortfolioForgeCommandlet.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "EdGraphSchema_K2.h"
-#include "EditorLoadingAndSavingUtils.h"
+#include "FileHelpers.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/World.h"
@@ -21,6 +21,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "UObject/SavePackage.h"
+#include "UObject/Package.h"
 #include "UObject/UnrealType.h"
 
 namespace
@@ -85,7 +86,7 @@ namespace
    if (!Schema->TryCreateConnection(Event->FindPin(FName(*Parameter)),Call->FindPin(FName(*Parameter)))) return nullptr;
   FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
   FKismetEditorUtilities::CompileBlueprint(BP);
-  if (!ApplyDefaults(BP->GeneratedClass->GetDefaultObject(),Spec)) return nullptr;
+  if (!BP->GeneratedClass || BP->Status==BS_Error || !ApplyDefaults(BP->GeneratedClass->GetDefaultObject(),Spec)) return nullptr;
   if (BP->Status==BS_Error || !SaveAsset(BP,Path)) return nullptr;
   return BP;
  }
@@ -108,6 +109,7 @@ int32 UPortfolioForgeCommandlet::Main(const FString& Params)
  UMaterial* Material=NewObject<UMaterial>(MaterialPackage,TEXT("M_Surface"),RF_Public|RF_Standalone);
  auto* Tint=Cast<UMaterialExpressionVectorParameter>(
     UMaterialEditingLibrary::CreateMaterialExpression(Material,UMaterialExpressionVectorParameter::StaticClass()));
+ if (!Tint) return 2;
  Tint->ParameterName=TEXT("Tint"); Tint->DefaultValue=FLinearColor(0.14f,0.32f,0.38f);
  UMaterialEditingLibrary::ConnectMaterialProperty(Tint,TEXT(""),MP_BaseColor);
  Material->PostEditChange();

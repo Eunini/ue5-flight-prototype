@@ -11,6 +11,9 @@
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "UnrealClient.h"
+#if WITH_EDITOR
+#include "ShaderCompiler.h"
+#endif
 #include "Aircraft/FlightPawn.h"
 #include "Systems/AircraftSystemsComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -28,6 +31,9 @@ void UFlightCaptureSubsystem::Tick(float Delta)
   Handle=UGameViewportClient::OnScreenshotCaptured().AddUObject(this,&UFlightCaptureSubsystem::Captured);
   bConfigured=true;
  }
+#if WITH_EDITOR
+ if (GShaderCompilingManager && GShaderCompilingManager->IsCompiling()) {Warmup=0;return;}
+#endif
  if (++Warmup<=30 || bQueued) return;
  bQueued=true;FScreenshotRequest::RequestScreenshot(TEXT("PortfolioFrame"),true,false);
 }
@@ -46,7 +52,13 @@ void UFlightCaptureSubsystem::Captured(int32 Width,int32 Height,const TArray<FCo
   const auto* Pilot=Cast<AFlightPawn>(UGameplayStatics::GetPlayerPawn(GetWorld(),0));
   const bool Complete=Pilot && Pilot->GetAltitudeMetres()>25.f && Pilot->GetTelemetry().Airspeed>24. &&
       Pilot->GetSystems()->GetEngineState()==EEngineState::Running;
-  if (!Complete){bFinished=true;FPlatformMisc::RequestExitWithStatus(false,2);return;}
+  if (!Complete)
+  {
+   UE_LOG(LogTemp,Error,TEXT("Alpine Flight objectives incomplete: altitude=%.2f speed=%.2f engine=%d"),
+      Pilot?Pilot->GetAltitudeMetres():-1.f,Pilot?Pilot->GetTelemetry().Airspeed:-1.,
+      Pilot?static_cast<int32>(Pilot->GetSystems()->GetEngineState()):-1);
+   bFinished=true;FPlatformMisc::RequestExitWithStatus(false,2);return;
+  }
   const FString Evidence=FString::Printf(TEXT("{\"success\":true,\"engineStarted\":true,\"airborne\":true,\"altitudeMetres\":%.2f,\"airspeedMetresPerSecond\":%.2f}"),Pilot->GetAltitudeMetres(),Pilot->GetTelemetry().Airspeed);
   FFileHelper::SaveStringToFile(Evidence,*(FPaths::ProjectSavedDir()/TEXT("GameplayEvidence.json")));
   const FString Receipt=FString::Printf(TEXT("{\"success\":true,\"frames\":%d,\"width\":%d,\"height\":%d,\"fps\":30,\"renderer\":\"Unreal Engine 5.4\"}"),Frame,Width,Height);

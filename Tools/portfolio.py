@@ -49,17 +49,22 @@ build=batch/("Build.bat" if system=="Windows" else ("Mac/Build.sh" if system=="D
 editor=engine/"Engine"/"Binaries"/target_platform/("UnrealEditor-Cmd.exe" if system=="Windows" else "UnrealEditor-Cmd")
 if not editor.is_file(): editor=editor.with_name("UnrealEditor.exe" if system=="Windows" else "UnrealEditor")
 if not build.is_file() or not editor.is_file(): p.error("Engine build tools and editor executable were not found")
-subprocess.run([str(build),config["target"],target_platform,"Development","-Project="+str(project),"-WaitMutex","-NoHotReload","-NoDebugInfo","-MaxParallelActions=3"],check=True)
+subprocess.run([str(build),config["target"],target_platform,"Development","-Project="+str(project),"-WaitMutex","-NoHotReload","-NoDebugInfo","-MaxParallelActions=6"],check=True)
 subprocess.run([str(editor),str(project),"-run=PortfolioForge","-unattended","-NullRHI","-nosplash","-log"],check=True)
 receipt=project_root/"Saved"/"PortfolioAssets.json"
 if not receipt.is_file(): raise SystemExit("Editor asset receipt was not produced")
 data=json.loads(receipt.read_text())
 if not data.get("success"): raise SystemExit("Editor asset generation did not complete")
 print("Native assets generated:",len(data["assets"]))
+if config.get("lyra"):
+    for folder in ("ArenaDemo","Portfolio"):
+        source=project_root/"Content"/folder
+        if source.exists(): shutil.copytree(source,root/"Content"/folder,dirs_exist_ok=True)
+
 if a.package:
     uat=batch/("RunUAT.bat" if system=="Windows" else "RunUAT.sh")
     subprocess.run([str(uat),"BuildCookRun","-project="+str(project),"-noP4","-platform="+target_platform,
-                    "-clientconfig=Development","-build","-cook","-map="+config["map"],
+                    "-clientconfig=Development","-nodebuginfo","-ubtargs=-NoDebugInfo -MaxParallelActions=6","-build","-cook","-map="+config["map"],
                     "-stage","-pak","-archive","-archivedirectory="+str(root/"Artifacts"/target_platform)],check=True)
 if a.run or a.capture:
     exe=engine/"Engine"/"Binaries"/target_platform/("UnrealEditor.exe" if system=="Windows" else "UnrealEditor")

@@ -118,6 +118,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Aircraft|Cabin")
 	TObjectPtr<UStaticMeshComponent> InstrumentPanel;
 
+ UPROPERTY() TObjectPtr<USceneComponent> PropellerRoot;
+ UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> TrimParts;
+
 	UPROPERTY(VisibleAnywhere, Category = "Aircraft|Cabin")
 	TArray<TObjectPtr<UCabinSwitchComponent>> PanelSwitches;
 
@@ -219,7 +222,7 @@ private:
 	bool bShowDiagnostics = false;
 	FRotator CabinLook = FRotator::ZeroRotator;
  bool bPortfolioDemo=false;
- float DemoStartedAt=0.f;
+ float DemoAge=0.f;
  int32 DemoSwitchStep=0;
- void AdvanceDemo();
+ void AdvanceDemo(float Delta);
 };

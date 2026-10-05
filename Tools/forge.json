@@ -11,5 +11,6 @@
       "event": "ReceiveBeginPlay",
       "call": "ApplyAircraftLivery"
     }
-  ]
+  ],
+  "frames": 1800
 }

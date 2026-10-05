@@ -2,7 +2,7 @@
 
 A C++ light-aircraft project with an original alpine airfield, an interactive cabin and a server-authoritative flight model.
 
-The native editor modules compile in Unreal Engine 5.4.4. The repository includes the engine-generated Blueprint aircraft, material and airfield map. A native UE5 run completed the engine start and takeoff, reaching 60 metres at 38 m/s. The objective receipt is in `Evidence/NativeObjectives.json`. Native gameplay recording is underway.
+The native editor modules compile in Unreal Engine 5.4.4. The repository includes the engine-generated Blueprint aircraft, material and airfield map. A native UE5 run completed the engine start and takeoff, reaching 60 metres at 38 m/s. The objective receipt is in `Evidence/NativeObjectives.json`. [Download the 60-second UE5 gameplay recording](https://github.com/Eunini/ue5-flight-prototype/releases/download/native-gameplay-v1/ue5-flight-prototype-Gameplay.mp4). The viewport capture records the cold start, takeoff and climb; its objective and frame receipt is in `Evidence/ViewportCapture.json`.
 
 ## Featured systems
 
@@ -41,3 +41,14 @@ cmake --build build
 Nine scenarios cover parked stability, takeoff and climb, cruise bounds, glide energy loss, stall behavior, control directions, landing impact, deterministic replay and input sanitization. These checks cover the flight model; they do not establish native gameplay or multiplayer performance.
 
 `Tools/NetSim` also exercises the replication algorithm with latency, loss and reordering outside Unreal. Its browser viewer is a visualization of that simulation. Native gameplay footage is produced only by the engine recording command above.
+
+## Native objective run
+
+After building the project, launch the same demonstration without graphics to repeat its gameplay objectives:
+
+```bash
+/path/to/UE5.4/Engine/Binaries/Linux/UnrealEditor /path/to/FlightProto.uproject /Game/FlightDemo/Maps/FlightField \
+  -game -NullRHI -NoSound -PortfolioDemo -PortfolioVerify -PortfolioFrames=1800 -unattended
+```
+
+The engine exits successfully only when the expected Blueprint pawn and gameplay objectives are complete. The receipt is written to `Saved/GameplayEvidence.json`. This mode produces no video frames.

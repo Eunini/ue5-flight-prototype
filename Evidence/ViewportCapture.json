@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "frames": 1800,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "renderer": "Unreal Engine 5.4",
+  "gameplay": {
+    "success": true,
+    "blueprintClass": "BP_Aircraft_C",
+    "engineStarted": true,
+    "airborne": true,
+    "altitudeMetres": 57.58,
+    "airspeedMetresPerSecond": 38.12
+  },
+  "engineVersion": {
+    "MajorVersion": 5,
+    "MinorVersion": 4,
+    "PatchVersion": 4,
+    "Changelist": 0,
+    "CompatibleChangelist": 33043543,
+    "IsLicenseeVersion": 0,
+    "IsPromotedBuild": 0,
+    "BranchName": "UE5",
+    "BuildId": "ba85bce9-4592-4351-a6ff-c8bd5c339bdb"
+  },
+  "graphicsDevice": "Mesa llvmpipe Vulkan CPU renderer"
+}

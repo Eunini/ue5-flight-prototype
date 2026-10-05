@@ -60,11 +60,11 @@ namespace PortfolioVisual
  {
   auto* Sun=NewObject<UDirectionalLightComponent>(Owner);
   Owner->AddInstanceComponent(Sun); Sun->SetupAttachment(Owner->GetRootComponent());
-  Sun->SetRelativeRotation(FRotator(-35,-25,0)); Sun->SetIntensity(4.f);
+  Sun->SetMobility(EComponentMobility::Movable); Sun->SetRelativeRotation(FRotator(-35,-25,0)); Sun->SetIntensity(4.f);
   Sun->SetLightColor(FLinearColor(1.f,.86f,.68f)); Sun->RegisterComponent();
   auto* Sky=NewObject<USkyLightComponent>(Owner);
   Owner->AddInstanceComponent(Sky); Sky->SetupAttachment(Owner->GetRootComponent());
-  Sky->bRealTimeCapture=true; Sky->SetIntensity(.8f); Sky->RegisterComponent();
+  Sky->SetMobility(EComponentMobility::Movable); Sky->bRealTimeCapture=false; Sky->SetIntensity(.8f); Sky->RegisterComponent();
   auto* Atmosphere=NewObject<USkyAtmosphereComponent>(Owner);
   Owner->AddInstanceComponent(Atmosphere); Atmosphere->SetupAttachment(Owner->GetRootComponent()); Atmosphere->RegisterComponent();
   auto* Fog=NewObject<UExponentialHeightFogComponent>(Owner);

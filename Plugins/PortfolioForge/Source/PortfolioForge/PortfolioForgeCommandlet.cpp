@@ -55,6 +55,7 @@ namespace
   UClass* Parent=LoadClass<UObject>(nullptr,*Spec->GetStringField(TEXT("parent")));
   if (!Parent) return nullptr;
   UPackage* Package=CreatePackage(*Path);
+  Package->FullyLoad();
   UBlueprint* BP=FindObject<UBlueprint>(Package,*FPackageName::GetLongPackageAssetName(Path));
   if (!BP)
   {
@@ -65,10 +66,16 @@ namespace
   if (!BP || BP->UbergraphPages.IsEmpty()) return nullptr;
   UEdGraph* Graph=BP->UbergraphPages[0];
   const FName EventName(*Spec->GetStringField(TEXT("event")));
+  const FName CallName(*Spec->GetStringField(TEXT("call")));
   const TArray<UEdGraphNode*> OldNodes=Graph->Nodes;
   for (UEdGraphNode* Node:OldNodes)
-   if (auto* Event=Cast<UK2Node_Event>(Node); Event && Event->EventReference.GetMemberName()==EventName)
+  {
+   const auto* Event=Cast<UK2Node_Event>(Node);
+   const auto* Call=Cast<UK2Node_CallFunction>(Node);
+   if ((Event && Event->EventReference.GetMemberName()==EventName) ||
+       (Call && Call->FunctionReference.GetMemberName()==CallName))
     FBlueprintEditorUtils::RemoveNode(BP,Node,true);
+  }
   UFunction* EventFunction=Parent->FindFunctionByName(EventName);
   UFunction* CallFunction=Parent->FindFunctionByName(FName(*Spec->GetStringField(TEXT("call"))));
   if (!EventFunction || !CallFunction) return nullptr;
@@ -108,7 +115,10 @@ int32 UPortfolioForgeCommandlet::Main(const FString& Params)
  TArray<TSharedPtr<FJsonValue>> Assets;
  const FString MaterialPath=TEXT("/Game/Portfolio/M_Surface");
  UPackage* MaterialPackage=CreatePackage(*MaterialPath);
- UMaterial* Material=NewObject<UMaterial>(MaterialPackage,TEXT("M_Surface"),RF_Public|RF_Standalone);
+ MaterialPackage->FullyLoad();
+ UMaterial* Material=FindObject<UMaterial>(MaterialPackage,TEXT("M_Surface"));
+ if (!Material) Material=NewObject<UMaterial>(MaterialPackage,TEXT("M_Surface"),RF_Public|RF_Standalone);
+ else UMaterialEditingLibrary::DeleteAllMaterialExpressions(Material);
  auto* Tint=Cast<UMaterialExpressionVectorParameter>(
     UMaterialEditingLibrary::CreateMaterialExpression(Material,UMaterialExpressionVectorParameter::StaticClass()));
  if (!Tint) return 2;
@@ -131,7 +141,11 @@ int32 UPortfolioForgeCommandlet::Main(const FString& Params)
    const FString Path=AssetSpec->GetStringField(TEXT("path"));
    UClass* Class=LoadClass<UObject>(nullptr,*AssetSpec->GetStringField(TEXT("class")));
    if (!Class) return 9;
-   UObject* Asset=NewObject<UObject>(CreatePackage(*Path),Class,FName(*FPackageName::GetLongPackageAssetName(Path)),RF_Public|RF_Standalone);
+   UPackage* Package=CreatePackage(*Path);Package->FullyLoad();
+   const FName Name(*FPackageName::GetLongPackageAssetName(Path));
+   UObject* Asset=FindObject<UObject>(Package,*Name.ToString());
+   if (!Asset) Asset=NewObject<UObject>(Package,Class,Name,RF_Public|RF_Standalone);
+   if (!Asset->IsA(Class)) return 9;
    if (!ApplyDefaults(Asset,AssetSpec)) return 10;
    FAssetRegistryModule::AssetCreated(Asset);
    if (!SaveAsset(Asset,Path)) return 11;

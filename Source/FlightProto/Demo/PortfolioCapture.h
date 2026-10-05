@@ -18,4 +18,5 @@ private:
  int32 Frame=0,Limit=0,Warmup=0;
  bool bQueued=false,bConfigured=false,bFinished=false;
  void Captured(int32 Width,int32 Height,const TArray<FColor>& Colors);
+ void FinishCapture(int32 Width,int32 Height);
 };

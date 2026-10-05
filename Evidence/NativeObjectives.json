@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "blueprintClass": "BP_Aircraft_C",
+  "engineStarted": true,
+  "airborne": true,
+  "altitudeMetres": 60.13,
+  "airspeedMetresPerSecond": 38.12,
+  "mode": "Native UE5 game execution with NullRHI; no video frames",
+  "engineVersion": "5.4.4",
+  "platform": "Linux x86_64"
+}
